@@ -30,11 +30,11 @@
 ###############################################################################
 
 
-
 from pathlib import Path
 import numpy as np
 import re
 import datetime as dt
+
 
 class raw:
     def __init__(self, obs_dir, verbose=False):
@@ -84,10 +84,10 @@ class raw:
             print(header)
 
         dt_block = np.dtype([('eisb', 'uint64'),
-                               ('tsb', 'uint64'),
-                               ('bsnb', 'uint64'),
-                               ('data', 'int8', (bytes_in,)),
-                               ])
+                             ('tsb', 'uint64'),
+                             ('bsnb', 'uint64'),
+                             ('data', 'int8', (bytes_in,)),
+                             ])
 
         return dt_header, dt_block
 
@@ -110,7 +110,6 @@ class raw:
         return data
 
 
-
 if __name__ == "__main__":
 
     import matplotlib.pyplot as plt
@@ -122,15 +121,15 @@ if __name__ == "__main__":
     plot_cross_corr = True
 
     block_idx = 0
-    if len(sys.argv) > 1 :
+    if len(sys.argv) > 1:
         block_idx = int(sys.argv[1])
 
     chan_start, chan_stop = 112, 175
-    f0 = (200 + chan_start) * 200.0/1024
-    f1 = (200 + chan_stop) * 200.0/1024
+    f0 = (200 + chan_start) * 200.0 / 1024
+    f1 = (200 + chan_stop) * 200.0 / 1024
 
     obs_dir, block_idx = Path('/databf2/nenufar-tf/B1919+21_TRACKING_20190319_080534'), 25
-    #obs_dir, block_idx = Path('/databf2/nenufar-tf/20190319_112500_20190319_113100_B2217+47'), 0
+    # obs_dir, block_idx = Path('/databf2/nenufar-tf/20190319_112500_20190319_113100_B2217+47'), 0
 
     assert obs_dir.exists(), "File not found.  Check path, or try running on a nancep node"
 
@@ -148,10 +147,11 @@ if __name__ == "__main__":
     chan_start *= fftlen
     chan_stop *= fftlen
 
-    for block_num in range(block_idx, block_idx+1):
+    for block_num in range(block_idx, block_idx + 1):
 
         max_bsn = 200e6 / 1024
-        ts = my_spectra.raw[0][block_num:block_num+2]['tsb'].astype("double") + my_spectra.raw[0][block_num:block_num+2]['bsnb'].astype("double") / max_bsn
+        ts = my_spectra.raw[0][block_num:block_num + 2]['tsb'].astype("double") + \
+             my_spectra.raw[0][block_num:block_num + 2]['bsnb'].astype("double") / max_bsn
         dates = list(dt.datetime.fromtimestamp(t) for t in ts)
         t0, t1 = md.date2num(dates)
         dates = list(t.isoformat() for t in dates)
@@ -159,27 +159,26 @@ if __name__ == "__main__":
         tmp = dat[block_num]
         tmp.shape = (nfft, fftlen, nobpb, nof_polcpx)
         tmp = tmp.astype('float32').view('complex64')
-        tmp = tmp.transpose((3,0,2,1))
+        tmp = tmp.transpose((3, 0, 2, 1))
         TMP = np.fft.fft(tmp, axis=-1)
         TMP = np.fft.fftshift(TMP, axes=-1)
-        TMP.shape = (2, nfft, nobpb*fftlen)
+        TMP.shape = (2, nfft, nobpb * fftlen)
 
         do_acc = False
 
-
         if plot_auto_corr:
-            fig1, axs = plt.subplots(1, 2, sharex=True, sharey=True,)# figsize=(30,15))
-            fig1.suptitle("%s - %s" % tuple(dates) )
+            fig1, axs = plt.subplots(1, 2, sharex=True, sharey=True, )  # figsize=(30,15))
+            fig1.suptitle("%s - %s" % tuple(dates))
             for polar, ax in enumerate(axs):
                 data_plot = TMP[polar, :, chan_start:chan_stop]
-                data_plot = data_plot.real**2 + data_plot.imag**2
+                data_plot = data_plot.real ** 2 + data_plot.imag ** 2
                 if do_acc:
-                    data_plot.shape = (272,10,-1)
+                    data_plot.shape = (272, 10, -1)
                     data_plot = data_plot.mean(axis=(1,))
                     v = (-3, 3)
                 else:
                     v = (0, 10)
-                data_plot = 10 * np.log10(data_plot+1e-10)
+                data_plot = 10 * np.log10(data_plot + 1e-10)
                 ref = data_plot.mean(axis=(0))
                 data_plot -= ref
                 ax.imshow(data_plot,
@@ -190,14 +189,14 @@ if __name__ == "__main__":
                           cmap="Greys_r"
                           )
                 ax.axis('tight')
-                ax.set_title(("XX","YY")[polar])
+                ax.set_title(("XX", "YY")[polar])
                 xfmt = md.DateFormatter('%Y-%m-%d\n%H:%M:%S\n+0.%f')
                 ax.yaxis.set_major_formatter(xfmt)
 
         if plot_cross_corr:
             XC = TMP[0, :, chan_start:chan_stop] * TMP[1, :, chan_start:chan_stop].conj()
             if do_acc:
-                XC.shape = (272,10,-1)
+                XC.shape = (272, 10, -1)
                 XC = XC.mean(axis=(1,))
                 v = (0, 5)
             else:
@@ -212,7 +211,7 @@ if __name__ == "__main__":
                            origin='upper',
                            vmin=-np.pi,
                            vmax=np.pi,
-                           #cmap="Greys_r",
+                           # cmap="Greys_r",
                            cmap="hsv",
                            )
             axs2[0].axis('tight')
@@ -220,9 +219,8 @@ if __name__ == "__main__":
             xfmt = md.DateFormatter('%Y-%m-%d\n%H:%M:%S\n+0.%f')
             axs2[0].yaxis.set_major_formatter(xfmt)
 
-
-            data_plot = np.sqrt(XC.real**2 + XC.imag**2)
-            data_plot = 10 * np.log10(data_plot+1e-10)
+            data_plot = np.sqrt(XC.real ** 2 + XC.imag ** 2)
+            data_plot = 10 * np.log10(data_plot + 1e-10)
             ref = data_plot.mean(axis=(0))
             data_plot -= ref
 
