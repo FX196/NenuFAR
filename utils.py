@@ -4,7 +4,6 @@ from matplotlib import pyplot as plt
 
 def read_bit(file):
     return int.from_bytes(file.read(1), byteorder="big", signed=True)
-    # byteorder ???
 
 
 def generate_2d_normal(size):
@@ -161,7 +160,7 @@ def plot_channels(num_channels, file, channel_size):
 def plot_channel_bartlett(file, header_dict, num_windows):
     channel = read_channels(file, header_dict)[0]
     channel = np.array(channel)
-    res_size = channel.shape[0]//num_windows
+    res_size = channel.shape[0] // num_windows
     res_0 = np.zeros(res_size)
     res_1 = np.zeros(res_size)
 

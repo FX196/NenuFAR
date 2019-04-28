@@ -32,14 +32,13 @@ class Data_Converter:
         self.output_file = output_file
         self.verbose = verbose
 
-        print(self.__dict__)
-
-    def write_int8_to_file(self, output_file, header_dict, data_gen, directIO=True):
+    def write_int8_to_file(self, output_file, header_gen, data_gen, directIO=True):
         """
         :param output_file: filename to write to
         :type output_file: str
-        :param header_dict: a dictionary of values to specify in the header
-        :type header_dict: dict
+        :param header_gen: generator that returnsa dictionary of values to specify in the header
+        :type header_gen: object
+        header_gen should have the same length as data_gen
         :param data_gen: a generator that outputs data as int8 numpy arrays
         :type data_gen: object
         the output of data_gen should be a 3d int8 array,
@@ -50,16 +49,18 @@ class Data_Converter:
         :type directIO: bool
         :return:
         """
+
+        header_dict = next(header_gen)
         NPOL = int(header_dict["NPOL"])  # number of polarizations, double for complex data
         OBSNCHAN = int(header_dict["OBSNCHAN"])  # number of channels in the data
 
         assert int(header_dict["NBITS"]) == 8, "NBITS must be 8 for this data"
 
-        header = generate_header(header_dict)  # get formatted header from dictionary
-
         with open(output_file, "wb") as output:
             current_block = 0
+            header = generate_header(header_dict)  # get formatted header from dictionary
             for data in data_gen:
+                output.write(header)
                 if self.verbose:
                     print("\rWriting Data Block %d" % current_block)
                 for channel_num in range(OBSNCHAN):
@@ -68,9 +69,26 @@ class Data_Converter:
 
                 # finished writing data block
                 current_block += 1
+                header_dict = next(header_gen)
+                header = generate_header(header_dict)
 
     def test(self):
         print("success")
+
+
+def get_sample_header():
+    with open("sample_header.txt", "rb") as file:
+        header, h_length, header_dict = read_header(file)
+    return header_dict
+
+
+def get_dummy_header_gen():
+    def dummy_header_gen():
+        count = 0
+        while count < 4:
+            yield get_sample_header()
+
+    return dummy_header_gen()
 
 
 def get_dummy_data_gen():
@@ -78,7 +96,7 @@ def get_dummy_data_gen():
         np.random.seed(0)
         count = 0
         while count < 4:
-            yield np.random.rand(1, 1, 128) * 50
+            yield np.random.rand(64, 4, 128) * 50
             count += 1
 
     return dummy_data_gen()
@@ -98,7 +116,10 @@ if __name__ == "__main__":
     converter = Data_Converter(input_file=args.input_file, output_file=args.output_file, verbose=args.verbose > 0)
 
     modes = {
-        'int8-guppi': Data_Converter.test
+        'int8-guppi': Data_Converter.write_int8_to_file
     }
 
-    modes[args.conversion_mode](converter)
+    header_gen = get_dummy_header_gen()
+    data_gen = get_dummy_data_gen()
+
+    modes[args.conversion_mode](converter, "test_write.raw", header_gen, data_gen)
