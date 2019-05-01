@@ -82,9 +82,6 @@ class Data_Converter:
                     continue
                 header = generate_header(header_dict)
 
-    def test(self):
-        print("success")
-
 
 def get_sample_header(block_index=0):
     with open("sample_data/samp_header%d" % block_index, "rb") as file:
