@@ -51,10 +51,16 @@ class Data_Converter:
         """
 
         header_dict = next(header_gen)
-        NPOL = int(header_dict["NPOL"])  # number of polarizations, double for complex data
+        NPOL = int(header_dict["NPOL"]) // 2
+        # number of polarizations, usually 4 for two polarizations of complex data
+        # dividing by two to treat complex data as single polarization
+        NBITS = int(header_dict["NBITS"])
         OBSNCHAN = int(header_dict["OBSNCHAN"])  # number of channels in the data
+        BLOCSIZE = int(header_dict["BLOCSIZE"])
 
-        assert int(header_dict["NBITS"]) == 8, "NBITS must be 8 for this data"
+        assert NBITS == 8, "NBITS must be 8 for this data"
+
+        NDIM = int(BLOCSIZE / (OBSNCHAN * (NPOL / 2) * (NBITS / 8))) // 2
 
         with open(output_file, "wb") as output:
             current_block = 0
@@ -62,31 +68,34 @@ class Data_Converter:
             for data in data_gen:
                 output.write(header)
                 if self.verbose:
-                    print("\rWriting Data Block %d" % current_block)
+                    print("\rWriting Data Block %d" % current_block, end="")
                 for channel_num in range(OBSNCHAN):
                     channel = data[channel_num]
                     output.write(channel.T.tobytes())
 
                 # finished writing data block
                 current_block += 1
-                header_dict = next(header_gen)
+                try:
+                    header_dict = next(header_gen)
+                except StopIteration:
+                    print("Header Generator Depleted")
+                    continue
                 header = generate_header(header_dict)
 
     def test(self):
         print("success")
 
 
-def get_sample_header():
-    with open("sample_header.txt", "rb") as file:
+def get_sample_header(block_index=0):
+    with open("sample_data/samp_header%d" % block_index, "rb") as file:
         header, h_length, header_dict = read_header(file)
     return header_dict
 
 
-def get_dummy_header_gen():
+def get_dummy_header_gen(num_blocks=128):
     def dummy_header_gen():
-        count = 0
-        while count < 4:
-            yield get_sample_header()
+        for i in range(num_blocks):
+            yield get_sample_header(i)
 
     return dummy_header_gen()
 
@@ -100,6 +109,27 @@ def get_dummy_data_gen():
             count += 1
 
     return dummy_data_gen()
+
+
+def get_synthesized_data_gen(NDIM, NPOL, NCHAN, num_blocks=128):
+    def synthesized_data_gen():
+        x = np.arange(0, NDIM / 1000, 1 / 1000)
+        pol_0_real = np.ones(NDIM) * 40
+        pol_0_imag = np.ones(NDIM) * 20
+        for _ in range(num_blocks):
+            channels = np.zeros(shape=(NCHAN, NPOL * 2, NDIM), dtype=np.int8)
+            for channel_ind in range(NCHAN):
+                channel = generate_channel(NDIM, NPOL)
+                channel[0] += pol_0_real
+                inds = channel[0] >= 128
+                channel[0][inds] = 127
+                channel[1] += pol_0_imag
+                inds = channel[1] >= 128
+                channel[1][inds] = 127
+                channels[channel_ind] = channel.astype(np.int8)
+            yield channels
+
+    return synthesized_data_gen()
 
 
 if __name__ == "__main__":
@@ -120,6 +150,6 @@ if __name__ == "__main__":
     }
 
     header_gen = get_dummy_header_gen()
-    data_gen = get_dummy_data_gen()
+    data_gen = get_synthesized_data_gen(524288, 2, 64)
 
     modes[args.conversion_mode](converter, "test_write.raw", header_gen, data_gen)
